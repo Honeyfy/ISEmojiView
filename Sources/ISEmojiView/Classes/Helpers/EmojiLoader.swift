@@ -17,9 +17,10 @@ final public class EmojiLoader {
   }
   
   static func emojiCategories() -> [EmojiCategory]? {
-    guard let file = Bundle.main.path(forResource: "apple", ofType: "json") else {
+    guard let file = Bundle.podBundle.path(forResource: "apple", ofType: "json") else {
       return nil
     }
+    
     guard let data = try? Data(contentsOf: URL(fileURLWithPath: file), options: .mappedIfSafe), let jsonResult = try? JSONSerialization.jsonObject(with: data, options: .mutableLeaves) else {
       return nil
     }
