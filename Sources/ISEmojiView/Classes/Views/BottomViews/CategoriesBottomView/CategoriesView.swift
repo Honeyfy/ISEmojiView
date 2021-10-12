@@ -41,7 +41,7 @@ final internal class CategoriesView: UIView {
   static internal func loadFromNib(with categories: [Category]) -> CategoriesView {
     let nibName = String(describing: CategoriesView.self)
     
-    guard let nib = Bundle.main.loadNibNamed(nibName, owner: nil, options: nil) as? [CategoriesView] else {
+    guard let nib = Bundle.podBundle.loadNibNamed(nibName, owner: nil, options: nil) as? [CategoriesView] else {
       fatalError()
     }
     

@@ -66,7 +66,7 @@ internal class EmojiCollectionView: UIView {
   static func loadFromNib(emojis: [EmojiCategory]) -> EmojiCollectionView {
     let nibName = String(describing: EmojiCollectionView.self)
     
-    guard let nib = Bundle.main.loadNibNamed(nibName, owner: nil, options: nil) as? [EmojiCollectionView] else {
+    guard let nib = Bundle.podBundle.loadNibNamed(nibName, owner: nil, options: nil) as? [EmojiCollectionView] else {
       fatalError()
     }
     
