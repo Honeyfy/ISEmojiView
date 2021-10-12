@@ -1,318 +1,242 @@
 //
 //  EmojiCollectionView.swift
-//  ISEmojiView
+//  ISEmojiView - https://github.com/isaced/ISEmojiView
 //
 //  Created by Beniamin Sarkisyan on 01/08/2018.
 //
 
 import Foundation
-import UIKit
 
 /// emoji view action callback delegate
-internal protocol EmojiCollectionViewDelegate: class {
-    
-    /// did press a emoji button
-    ///
-    /// - Parameters:
-    ///   - emojiView: the emoji view
-    ///   - emoji: a emoji
-    ///   - selectedEmoji: the selected emoji
-    func emojiViewDidSelectEmoji(emojiView: EmojiCollectionView, emoji: Emoji, selectedEmoji: String)
-    
-    /// changed section
-    ///
-    /// - Parameters:
-    ///   - category: current category
-    ///   - emojiView: the emoji view
-    func emojiViewDidChangeCategory(_ category: Category, emojiView: EmojiCollectionView)
-    
+internal protocol EmojiCollectionViewDelegate: AnyObject {
+  
+  /// did press a emoji button
+  ///
+  /// - Parameters:
+  ///   - emojiView: the emoji view
+  ///   - emoji: a emoji
+  ///   - selectedEmoji: the selected emoji
+  func emojiViewDidSelectEmoji(emojiView: EmojiCollectionView, emoji: String, selectedEmoji: String)
+  
+  /// changed section
+  ///
+  /// - Parameters:
+  ///   - category: current category
+  ///   - emojiView: the emoji view
+  func emojiViewDidChangeCategory(_ category: Category, emojiView: EmojiCollectionView)
+  
 }
 
 /// A emoji keyboard view
 internal class EmojiCollectionView: UIView {
-    
-    // MARK: - Public variables
-    
-    /// the delegate for callback
-    internal weak var delegate: EmojiCollectionViewDelegate?
-    
-    /// long press to pop preview effect like iOS10 system emoji keyboard, Default is true
-    internal var isShowPopPreview = true
-    
-    internal var emojis: [EmojiCategory]! {
-        didSet {
-            collectionView.reloadData()
-        }
+  
+  // MARK: - Public variables
+  
+  /// the delegate for callback
+  internal weak var delegate: EmojiCollectionViewDelegate?
+  
+  internal var emojis: [EmojiCategory]! {
+    didSet {
+      collectionView.reloadData()
     }
-    
-    // MARK: - Private variables
-    
-    private var scrollViewWillBeginDragging = false
-    private var scrollViewWillBeginDecelerating = false
-    private let emojiCellReuseIdentifier = "EmojiCell"
-    
-    private lazy var emojiPopView: EmojiPopView = {
-        let emojiPopView = EmojiPopView()
-        emojiPopView.delegate = self
-        emojiPopView.isHidden = true
-        return emojiPopView
-    }()
-    
-    // MARK: - IBOutlets
-    
-    @IBOutlet private weak var collectionView: UICollectionView! {
-        didSet {
-            collectionView.register(EmojiCollectionCell.self, forCellWithReuseIdentifier: emojiCellReuseIdentifier)
-        }
-    }
-    
-    // MARK: - Override variables
-    
-    internal override var intrinsicContentSize: CGSize {
-        return CGSize(width: UIView.noIntrinsicMetric, height: frame.size.height)
-    }
+  }
+  
+  // MARK: - Private variables
+  
+  private var scrollViewWillBeginDragging = false
+  private var scrollViewWillBeginDecelerating = false
 
+  // MARK: - IBOutlets
+  
+  @IBOutlet private weak var collectionView: UICollectionView! {
+    didSet {
+      collectionView.register(EmojiCollectionCell.self, forCellWithReuseIdentifier: "EmojiCollectionCell")
+      collectionView.register(SectionHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: "HeaderView")
+    }
+  }
+  
+  // MARK: - Override variables
+  
+  internal override var intrinsicContentSize: CGSize {
+    return CGSize(width: UIView.noIntrinsicMetric, height: frame.size.height)
+  }
+
+  // MARK: - Init functions
+  
+  static func loadFromNib(emojis: [EmojiCategory]) -> EmojiCollectionView {
+    let nibName = String(describing: EmojiCollectionView.self)
     
-    // MARK: - Public
-    
-    public func popPreviewShowing() -> Bool {
-        return !self.emojiPopView.isHidden;
+    guard let nib = Bundle.main.loadNibNamed(nibName, owner: nil, options: nil) as? [EmojiCollectionView] else {
+      fatalError()
     }
     
-    // MARK: - Init functions
-    
-    static func loadFromNib(emojis: [EmojiCategory]) -> EmojiCollectionView {
-        let nibName = String(describing: EmojiCollectionView.self)
-        
-        guard let nib = Bundle.podBundle.loadNibNamed(nibName, owner: nil, options: nil) as? [EmojiCollectionView] else {
-            fatalError()
-        }
-        
-        guard let view = nib.first else {
-            fatalError()
-        }
-        
-        view.emojis = emojis
-        view.setupView()
-        
-        return view
+    guard let view = nib.first else {
+      fatalError()
     }
     
-    // MARK: - Override functions
+    view.emojis = emojis
     
-    override public func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        guard point.y < 0 else {
-            return super.point(inside: point, with: event)
-        }
-        
-        return point.y >= -TopPartSize.height
+    return view
+  }
+  
+  // MARK: - Override functions
+  
+  override public func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    guard point.y < 0 else {
+      return super.point(inside: point, with: event)
+    }
+    return false
+  }
+  
+  // MARK: - Internal functions
+  
+  internal func scrollToCategory(_ category: Category) {
+    guard var section = emojis.firstIndex(where: { $0.category == category }) else {
+      return
     }
     
-    // MARK: - Internal functions
-    
-    internal func updateRecentsEmojis(_ emojis: [Emoji]) {
-        self.emojis[0].emojis = emojis
-        collectionView.reloadSections(IndexSet(integer: 0))
+    if category == .recents && emojis[section].emojis.isEmpty {
+      section = emojis.firstIndex(where: { $0.category == Category.smileysAndPeople })!
     }
     
-    internal func scrollToCategory(_ category: Category) {
-        guard var section = emojis.firstIndex(where: { $0.category == category }) else {
-            return
-        }
-        
-        if category == .recents && emojis[section].emojis.isEmpty {
-            section = emojis.firstIndex(where: { $0.category == Category.smileysAndPeople })!
-        }
-        
-        let indexPath = IndexPath(item: 0, section: section)
-        collectionView.scrollToItem(at: indexPath, at: .left, animated: true)
+    if let attributes = collectionView.collectionViewLayout.layoutAttributesForSupplementaryView(ofKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: section)) {
+      collectionView.setContentOffset(CGPoint(x: 0, y: attributes.frame.origin.y - collectionView.contentInset.top), animated: true)
     }
-    
+  }
+  
 }
 
 // MARK: - UICollectionViewDataSource
 
 extension EmojiCollectionView: UICollectionViewDataSource {
+  
+  internal func numberOfSections(in collectionView: UICollectionView) -> Int {
+    return emojis.count
+  }
+  
+  internal func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+    return emojis[section].emojis.count
+  }
+  
+  internal func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+    let emojiCategory = emojis[indexPath.section]
+    let emoji = emojiCategory.emojis[indexPath.item]
     
-    internal func numberOfSections(in collectionView: UICollectionView) -> Int {
-        return emojis.count
-    }
-    
-    internal func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return emojis[section].emojis.count
-    }
-    
-    internal func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let emojiCategory = emojis[indexPath.section]
-        let emoji = emojiCategory.emojis[indexPath.item]
-        
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: emojiCellReuseIdentifier, for: indexPath) as! EmojiCollectionCell
-        
-        if let selectedEmoji = emoji.selectedEmoji {
-            cell.setEmoji(selectedEmoji)
-        } else {
-            cell.setEmoji(emoji.emoji)
-        }
-        
-        return cell
-    }
+    let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "EmojiCollectionCell", for: indexPath) as! EmojiCollectionCell // swiftlint:disable:this force_cast
+    cell.setEmoji(emoji)
 
-    
+    return cell
+  }
 }
 
 // MARK: - UICollectionViewDelegate
 
 extension EmojiCollectionView: UICollectionViewDelegate {
+  
+  internal func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    let emojiCategory = emojis[indexPath.section]
+    let emoji = emojiCategory.emojis[indexPath.item]
     
-    internal func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard emojiPopView.isHidden else {
-            dismissPopView(false)
-            return
-        }
-        
-        let emojiCategory = emojis[indexPath.section]
-        let emoji = emojiCategory.emojis[indexPath.item]
-        
-        delegate?.emojiViewDidSelectEmoji(emojiView: self, emoji: emoji, selectedEmoji: emoji.selectedEmoji ?? emoji.emoji)
+    delegate?.emojiViewDidSelectEmoji(emojiView: self, emoji: emoji, selectedEmoji: emoji)
+  }
+  
+  func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+    if !scrollViewWillBeginDecelerating && !scrollViewWillBeginDragging {
+      return
     }
     
-    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        if !scrollViewWillBeginDecelerating && !scrollViewWillBeginDragging {
-            return
-        }
-        
-        if let indexPath = collectionView.indexPathsForVisibleItems.min() {
-            let emojiCategory = emojis[indexPath.section]
-            delegate?.emojiViewDidChangeCategory(emojiCategory.category, emojiView: self)
-        }
+    if let indexPath = collectionView.indexPathsForVisibleItems.min() {
+      let emojiCategory = emojis[indexPath.section]
+      delegate?.emojiViewDidChangeCategory(emojiCategory.category, emojiView: self)
     }
-
+  }
+  
+  func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+    switch kind {
+    case UICollectionView.elementKindSectionHeader:
+      let sectionHeader = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "HeaderView", for: indexPath) as! SectionHeader // swiftlint:disable:this force_cast
+      sectionHeader.label.text = emojis[indexPath.section].category.title
+      return sectionHeader
+    default:
+      return UICollectionReusableView()
+    }
+  }
 }
 
 // MARK: - UICollectionViewDelegateFlowLayout
 
 extension EmojiCollectionView: UICollectionViewDelegateFlowLayout {
+  
+  func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
+    var inset = UIEdgeInsets.zero
     
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
-        var inset = UIEdgeInsets.zero
-        
-        if let recentsEmojis = emojis.first(where: { $0.category == Category.recents }) {
-            if (!recentsEmojis.emojis.isEmpty && section != 0) || (recentsEmojis.emojis.isEmpty && section > 1) {
-                inset.left = 15
-            }
-        }
-        
-        if section == 0 {
-            inset.left = 3
-        }
-        
-        if section == emojis.count - 1 {
-            inset.right = 4
-        }
-        
-        return inset
+    if let recentsEmojis = emojis.first(where: { $0.category == Category.recents }) {
+      if (!recentsEmojis.emojis.isEmpty && section != 0) || (recentsEmojis.emojis.isEmpty && section > 1) {
+        inset.left = 3
+      }
     }
     
+    if section == 0 {
+      inset.left = 3
+    }
+    
+    if section == emojis.count - 1 {
+      inset.right = 4
+    }
+    
+    return inset
+  }
+  
+  func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
+    return CGSize(width: self.collectionView.frame.size.width, height: 35)
+  }
+  
+}
+
+class SectionHeader: UICollectionReusableView {
+  var label: UILabel = {
+    let label: UILabel = UILabel()
+    label.textColor = .black
+    label.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+    label.sizeToFit()
+    return label
+  }()
+  
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    
+    addSubview(label)
+    
+    label.translatesAutoresizingMaskIntoConstraints = false
+    label.topAnchor.constraint(equalTo: self.topAnchor).isActive = true
+    label.leftAnchor.constraint(equalTo: self.leftAnchor, constant: 12).isActive = true
+    label.rightAnchor.constraint(equalTo: self.rightAnchor).isActive = true
+    label.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true
+  }
+  
+  required init?(coder aDecoder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
 }
 
 // MARK: - UIScrollView
 
 extension EmojiCollectionView {
+  
+  internal func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    scrollViewWillBeginDragging = true
+  }
+  
+  internal func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+    scrollViewWillBeginDecelerating = true
+  }
 
-    internal func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        scrollViewWillBeginDragging = true
-    }
-    
-    internal func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
-        scrollViewWillBeginDecelerating = true
-    }
-    
-    internal func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        dismissPopView(false)
-    }
-    
-    internal func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        scrollViewWillBeginDragging = false
-    }
-    
-    internal func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        scrollViewWillBeginDecelerating = false
-    }
-
-}
-
-// MARK: - EmojiPopViewDelegate
-
-extension EmojiCollectionView: EmojiPopViewDelegate {
-    
-    internal func emojiPopViewShouldDismiss(emojiPopView: EmojiPopView) {
-        dismissPopView(true)
-    }
-    
-}
-
-// MARK: - Private functions
-
-extension EmojiCollectionView {
-    
-    private func setupView() {
-        let emojiLongPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(emojiLongPressHandle))
-        addGestureRecognizer(emojiLongPressGestureRecognizer)
-        
-        addSubview(emojiPopView)
-    }
-    
-    @objc private func emojiLongPressHandle(sender: UILongPressGestureRecognizer) {
-        func longPressLocationInEdge(_ location: CGPoint) -> Bool {
-            let edgeRect = collectionView.bounds.inset(by: collectionView.contentInset)
-            return edgeRect.contains(location)
-        }
-        
-        guard isShowPopPreview else { return }
-        
-        let location = sender.location(in: collectionView)
-        
-        guard longPressLocationInEdge(location) else {
-            dismissPopView(true)
-            return
-        }
-        
-        guard let indexPath = collectionView.indexPathForItem(at: location) else {
-            return
-        }
-        
-        guard let attr = collectionView.layoutAttributesForItem(at: indexPath) else {
-            return
-        }
-    
-        let emojiCategory = emojis[indexPath.section]
-        let emoji = emojiCategory.emojis[indexPath.item]
-        
-        if sender.state == .ended && emoji.emojis.count == 1 {
-            dismissPopView(true)
-            return
-        }
-        
-        emojiPopView.setEmoji(emoji)
-        
-        let cellRect = attr.frame
-        let cellFrameInSuperView = collectionView.convert(cellRect, to: self)
-        let emojiPopLocation = CGPoint(
-            x: cellFrameInSuperView.origin.x - ((TopPartSize.width - BottomPartSize.width) / 2.0) + 5,
-            y: cellFrameInSuperView.origin.y - TopPartSize.height - 10
-        )
-        emojiPopView.move(location: emojiPopLocation, animation: sender.state != .began)
-    }
-    
-    private func dismissPopView(_ usePopViewEmoji: Bool) {
-        emojiPopView.dismiss()
-        
-        let currentEmoji = emojiPopView.currentEmoji
-        if !currentEmoji.isEmpty && usePopViewEmoji {
-            self.delegate?.emojiViewDidSelectEmoji(emojiView: self, emoji: Emoji(emojis: emojiPopView.emojiArray), selectedEmoji: currentEmoji)
-        }
-        
-        emojiPopView.currentEmoji = ""
-    }
-    
+  internal func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    scrollViewWillBeginDragging = false
+  }
+  
+  internal func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    scrollViewWillBeginDecelerating = false
+  }
+  
 }
