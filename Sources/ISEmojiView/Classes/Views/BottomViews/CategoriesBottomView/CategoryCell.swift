@@ -74,7 +74,7 @@ internal class CategoryCell: UICollectionViewCell {
   internal func setEmojiCategory(_ category: Category) {
     let image: UIImage?
     
-    image = UIImage(named: category.iconName)
+    image = UIImage(named: category.iconName, in: Bundle.podBundle, compatibleWith: nil)
     emojiImageView.image = image?.withRenderingMode(.alwaysTemplate)
   }
   
